@@ -47,8 +47,10 @@ def classify(items):
 def print_items(items):
     """Column-formatted output.
     """
-    max_cols = 80
+    max_cols = 120
     width = max(len(f) for f in items) + 2
+    if width > max_cols:
+        max_cols = width
     width_fmt = '{:>'+str(width)+'}'
     words_per_line = max_cols / width
     num_lines = (len(items) + words_per_line) / (words_per_line + 1)
