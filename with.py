@@ -27,14 +27,16 @@ followed by the command. No files are permitted after command.
 
     return args
     
-
 def partition(items, predicate=bool):
+    """Partition a list base on predicate.  Courtesy of Ned Batchelder.
+    http://nedbatchelder.com/blog/201306/filter_a_list_into_two_parts.html
+    """
     a, b = itertools.tee((predicate(item), item) for item in items)
     return ((item for pred, item in a if pred),
             (item for pred, item in b if not pred))
 
-
 def classify(items):
+    """Classify items in file, directories, etc."""
     exist, nonexist = partition(items, os.path.exists)
     files, nonfiles = partition(exist, os.path.isfile)
     dirs, unknown   = partition(nonfiles, os.path.isdir)
@@ -42,6 +44,7 @@ def classify(items):
 
 
 def print_items(items):
+    """Column-formatted output"""
     max_cols = 80
     width = max(len(f) for f in items) + 2
     width_fmt = '{:>'+str(width)+'}'
@@ -54,16 +57,19 @@ def print_items(items):
         print
             
 def remove(files, dirs):
+    """Here goes..."""
     for f in files:
         try:
             os.remove(f)
         except Exception as e:
             print str(e)
+            sys.exit(1)
     for f in dirs:
         try:
             shutil.rmtree(f)
         except Exception as e:
             print str(e)
+            sys.exit(1)
             
     
 def main():
@@ -92,17 +98,18 @@ def main():
             print 'not found items:'
             print_items(nonexist)
 
-        if not files and not dirs:
-            print 'Nothing to do!'
-            sys.exit(1)
-
         response = raw_input('proceed? (y/n)').strip()
         if response != 'y':
-            sys.exit()
+            sys.exit(0)
+
+    if not files and not dirs:
+        print 'Nothing to do!'
+        sys.exit(1)
 
     if args.command == 'remove':
         remove(files, dirs)
     
+    sys.exit(0)
 
 if __name__ == '__main__':
     main()
@@ -152,20 +159,25 @@ class TestWith(unittest.TestCase):
                 pass
 
     def test_args_01(self):
+        """Parser should return list of three files."""
         args = parse_args('foo bar baz remove'.split())
         self.assertEqual(args.files,['foo','bar','baz'])
         self.assertEqual(args.command,'remove')
 
     def test_args_02(self):
+        """Copy commnd is not implemented yet."""
         self.assertRaises(NotImplementedError, parse_args, 'foo bar baz copy'.split())
 
     def test_args_03(self):
+        """Parser does not recognize this command."""
         self.assertRaises(FunkyParserError, parse_args, 'foo bar baz unknown'.split())
 
     def test_args_04(self):
+        """Parser needs at least one file argument."""
         self.assertRaises(FunkyParserError, parse_args, 'remove'.split())
 
     def test_classify_01(self):
+        """Correctly classify temporary files and directory."""
         with self.mkdtemp() as d1,\
                 self.mkstemp(prefix=d1+'/') as f1,\
                 self.mkstemp(prefix=d1+'/') as f2,\
@@ -178,6 +190,7 @@ class TestWith(unittest.TestCase):
 
 
     def test_remove_01(self):
+        """Temp files are correctly removed."""
         files = []
         for _ in xrange(10):
             fd, path = tempfile.mkstemp()
@@ -187,6 +200,7 @@ class TestWith(unittest.TestCase):
             self.assertFalse(os.path.exists(files[i]))
 
     def test_remove_02(self):
+        """Temp directories are correctly removed."""
         dirs = []
         for _ in xrange(10):
             path = tempfile.mkdtemp()
@@ -196,6 +210,7 @@ class TestWith(unittest.TestCase):
             self.assertFalse(os.path.exists(dirs[i]))
 
     def test_main_01(self):
+        """Functional test exits successfully."""
         with self.mkdtemp() as d1,\
                 self.mkstemp(prefix=d1) as f1,\
                 self.mkstemp(prefix=d1+'/') as f2,\
@@ -219,6 +234,7 @@ class TestWith(unittest.TestCase):
             self.assertFalse(os.path.exists(d1))
 
     def test_main_02(self):
+        """Functional test exits with failure."""
         with self.mkstemp() as f1,\
                 self.mkstemp() as f2,\
                 self.mkstemp() as f3:
@@ -233,4 +249,3 @@ class TestWith(unittest.TestCase):
         rc = proc.wait()
 
         self.assertEqual(rc,1)
-
