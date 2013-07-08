@@ -165,7 +165,7 @@ class TestWith(unittest.TestCase):
         self.assertEqual(args.command,'remove')
 
     def test_args_02(self):
-        """Copy commnd is not implemented yet."""
+        """Copy command is not implemented yet."""
         self.assertRaises(NotImplementedError, parse_args, 'foo bar baz copy'.split())
 
     def test_args_03(self):
@@ -173,7 +173,7 @@ class TestWith(unittest.TestCase):
         self.assertRaises(FunkyParserError, parse_args, 'foo bar baz unknown'.split())
 
     def test_args_04(self):
-        """Parser needs at least one file argument."""
+        """Parser needs at least one target."""
         self.assertRaises(FunkyParserError, parse_args, 'remove'.split())
 
     def test_classify_01(self):
@@ -183,11 +183,11 @@ class TestWith(unittest.TestCase):
                 self.mkstemp(prefix=d1+'/') as f2,\
                 self.mkstemp(prefix=d1+'/') as f3:
             files, dirs, unknown, nonexist = classify([d1,f1,f2,f3])
-            self.assertEqual([f for f in files], [f1,f2,f3])
-            self.assertEqual([f for f in dirs], [d1])
-            self.assertEqual([f for f in unknown], [])
-            self.assertEqual([f for f in nonexist], [])
-
+            self.assertEqual(list(files),    [f1,f2,f3])
+            self.assertEqual(list(dirs),     [d1])
+            self.assertEqual(list(unknown),  [])
+            self.assertEqual(list(nonexist), [])
+            
 
     def test_remove_01(self):
         """Temp files are correctly removed."""
