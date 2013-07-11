@@ -2,8 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-with -- Perform destructive operations safely. Specify a list of files
-followed by the command. No files are permitted after command.
+with -- Perform destructive file operations safely.
 
 Copyright © 2013 Robert Hunter
 
@@ -21,27 +20,46 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.import sys
 """
 
+import sys
 import os
 import shutil
 import argparse
 import itertools
 
 
-def parse_args(*args):
+def parse_args(*args, **kwargs):
 
     parser = argparse.ArgumentParser(description="""
-Perform destructive operations safely. Specify a list of files
+Perform destructive file operations safely. Specify a list of files
 followed by the command. No files are permitted after command.
 """)
 
     parser.add_argument('--interactive', '-i', action='store_true',
-                        help='display targets, and prompt before '
-                        'executing command')
+                        help='prompt before executing command. '
+                        'implies verbose.')
+
+    parser.add_argument('--verbose', '-v', action='store_true',
+                        help='display targets')
+
     parser.add_argument('files', nargs='+',
-                        help='one or more file or directory names')
+                       help='one or more file or directory names.  '
+                        'a single dash "-" forces filenames '
+                        'to be read from standard input, and disables '
+                        'interactive mode.')
+
     parser.add_argument('command', choices=['remove', 'move', 'copy'],
                         help='command to perform on files')
+
     args = parser.parse_args(*args)
+
+    if args.interactive:
+        args.verbose = True
+
+    if args.files == ['-']:
+        input_stream = kwargs['stream']
+        args.files = [line.strip() for line in input_stream]
+        args.interactive = False
+        args.verbose = True
 
     if args.command != 'remove':
         raise NotImplementedError
@@ -119,11 +137,11 @@ def prompt_to_proceed():
 
 def main():
 
-    args = parse_args()
+    args = parse_args(stream=sys.stdin)
 
     files, dirs, unknown, nonexist = classify(args.files)
 
-    if args.interactive:
+    if args.verbose:
         if files:
             hdr = 'files to {}:'.format(args.command)
             print_items(hdr, files)
@@ -161,7 +179,7 @@ import unittest
 import contextlib
 import tempfile
 import subprocess
-
+import StringIO
 
 class FunkyParserError(RuntimeError):
     pass
@@ -224,6 +242,22 @@ class TestWith(unittest.TestCase):
         """Needs at least one target.
         """
         self.assertRaises(FunkyParserError, parse_args, 'remove'.split())
+
+    def test_args_05(self):
+        """Reads list of filenames from input stream.
+        """
+        files = 'foo bar baz bang qux quxx'.split()
+        stream = StringIO.StringIO('\n'.join(files))
+        args = parse_args('- remove'.split(), stream=stream)
+        self.assertEqual(args.files, files)
+
+    def test_args_06(self):
+        """Reads list of filenames with embedded spaces from input stream.
+        """
+        files = ['foo bar', 'baz bang', 'qux quxx']
+        stream = StringIO.StringIO('\n'.join(files))
+        args = parse_args('- remove'.split(), stream=stream)
+        self.assertEqual(args.files, files)
 
     def test_classify_01(self):
         """Correctly classifies temporary files and directory.
@@ -302,6 +336,54 @@ class TestWith(unittest.TestCase):
                                 stderr=subprocess.PIPE)
 
         stdout, stderr = proc.communicate('y\n')
+        rc = proc.wait()
+
+        self.assertEqual(rc, 1)
+
+    def test_main_03(self):
+        """Completes functional test by removing files and directory
+        specified on standard input, and then exits with zero code.
+        """
+        with self.mkdtemp() as d1,\
+                self.mkstemp(prefix=d1) as f1,\
+                self.mkstemp(prefix=d1+'/') as f2,\
+                self.mkstemp(prefix=d1+'/') as f3:
+            proc = subprocess.Popen(['python', __file__, '-',
+                                     'remove'],
+                                    stdin=subprocess.PIPE,
+                                    stdout=subprocess.PIPE,
+                                    stderr=subprocess.PIPE)
+
+            files = '\n'.join([d1, f1, f2, f3])
+            stdout, stderr = proc.communicate(files)
+            rc = proc.wait()
+
+            if rc:
+                print stdout
+                print stderr
+
+            self.assertEqual(rc, 0)
+            self.assertFalse(os.path.exists(f1))
+            self.assertFalse(os.path.exists(f2))
+            self.assertFalse(os.path.exists(f3))
+            self.assertFalse(os.path.exists(d1))
+
+    def test_main_04(self):
+        """Fails functional test because files do not exist, and so it
+        exits with non-zero code.
+        """
+        with self.mkstemp() as f1,\
+                self.mkstemp() as f2,\
+                self.mkstemp() as f3:
+            pass
+
+        proc = subprocess.Popen(['python', __file__, '-', 'remove'],
+                                stdin=subprocess.PIPE,
+                                stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE)
+
+        files = '\n'.join([f1, f2, f3])
+        stdout, stderr = proc.communicate(files)
         rc = proc.wait()
 
         self.assertEqual(rc, 1)
