@@ -64,7 +64,7 @@ def classify(items):
     exist, nonexist = partition(items, os.path.exists)
     files, nonfiles = partition(exist, os.path.isfile)
     dirs, unknown = partition(nonfiles, os.path.isdir)
-    return files, dirs, unknown, nonexist
+    return tuple(list(g) for g in (files, dirs, unknown, nonexist))
 
 
 def numbins(n, binsize):
@@ -121,7 +121,7 @@ def main():
 
     args = parse_args()
 
-    files, dirs, unknown, nonexist = [list(g) for g in (classify(args.files))]
+    files, dirs, unknown, nonexist = classify(args.files)
 
     if args.interactive:
         if files:
@@ -233,10 +233,10 @@ class TestWith(unittest.TestCase):
                 self.mkstemp(prefix=d1+'/') as f2,\
                 self.mkstemp(prefix=d1+'/') as f3:
             files, dirs, unknown, nonexist = classify([d1, f1, f2, f3])
-            self.assertEqual(list(files), [f1, f2, f3])
-            self.assertEqual(list(dirs), [d1])
-            self.assertEqual(list(unknown), [])
-            self.assertEqual(list(nonexist), [])
+            self.assertEqual(files, [f1, f2, f3])
+            self.assertEqual(dirs, [d1])
+            self.assertEqual(unknown, [])
+            self.assertEqual(nonexist, [])
 
     def test_remove_01(self):
         """Successfully removes temp files.
