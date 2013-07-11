@@ -44,6 +44,9 @@ def classify(items):
     return files, dirs, unknown, nonexist
 
 
+def numbins(n, binsize):
+    return 1 + ((n - 1) / binsize)
+
 def print_items(items):
     """Column-formatted output.
     """
@@ -51,9 +54,9 @@ def print_items(items):
     width = max(len(f) for f in items) + 2
     if width > max_cols:
         max_cols = width
-    width_fmt = '{:>'+str(width)+'}'
+    width_fmt = '{:<'+str(width)+'}'
     words_per_line = max_cols / width
-    num_lines = (len(items) + words_per_line) / (words_per_line + 1)
+    num_lines = numbins(len(items), words_per_line)
     it = iter(items)
     for i in xrange(num_lines):
         for _, word in itertools.izip(xrange(words_per_line), it):
@@ -263,3 +266,30 @@ class TestWith(unittest.TestCase):
         rc = proc.wait()
 
         self.assertEqual(rc,1)
+
+class TestBins(unittest.TestCase):
+
+    def __init__(self, *args, **kwargs):
+        self.longMessage = True
+        super(TestBins, self).__init__(*args, **kwargs)
+
+    def msg(self, i, j, k):
+        return 'multiplier = {}, binsize = {}, items = {}'.format(i, j, k)
+
+    def test_numbins_1(self):
+        for i in [0]: # multiple of bin size
+            for j in xrange(1,100): # bin size
+                for k in xrange (i*j+1,(i+1)*j): # number of items
+                    self.assertEqual(numbins(k,j), i+1, self.msg(i, j, k))
+
+    def test_numbins_2(self):
+        for i in [1]: # multiple of bin size
+            for j in xrange(1,100): # bin size
+                for k in xrange (i*j+1,(i+1)*j): # number of items
+                    self.assertEqual(numbins(k,j), i+1, self.msg(i, j, k))
+
+    def test_numbins_3(self):
+        for i in xrange(0,20): # multiple of bin size
+            for j in xrange(1,100): # bin size
+                for k in xrange (i*j+1,(i+1)*j): # number of items
+                    self.assertEqual(numbins(k,j), i+1, self.msg(i, j, k))
