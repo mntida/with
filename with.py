@@ -1,9 +1,31 @@
 #!/usr/bin/env python
-import sys
+# -*- coding: utf-8 -*-
+
+"""
+with -- Perform destructive operations safely. Specify a list of files
+followed by the command. No files are permitted after command.
+
+Copyright © 2013 Robert Hunter
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.import sys
+"""
+
 import os
 import shutil
 import argparse
 import itertools
+
 
 def parse_args(*args):
 
@@ -11,22 +33,22 @@ def parse_args(*args):
 Perform destructive operations safely. Specify a list of files
 followed by the command. No files are permitted after command.
 """)
- 
+
     parser.add_argument('--interactive', '-i', action='store_true',
-                        help='display targets, and prompt before executing command')
+                        help='display targets, and prompt before '
+                        'executing command')
     parser.add_argument('files', nargs='+',
                         help='one or more file or directory names')
-    parser.add_argument('command', choices=['remove','move','copy'],
+    parser.add_argument('command', choices=['remove', 'move', 'copy'],
                         help='command to perform on files')
     args = parser.parse_args(*args)
-
-    command = None
 
     if args.command != 'remove':
         raise NotImplementedError
 
     return args
-    
+
+
 def partition(items, predicate=bool):
     """Partition a list based on predicate.  Courtesy of Ned Batchelder.
     http://nedbatchelder.com/blog/201306/filter_a_list_into_two_parts.html
@@ -35,34 +57,43 @@ def partition(items, predicate=bool):
     return ((item for pred, item in a if pred),
             (item for pred, item in b if not pred))
 
+
 def classify(items):
-    """Classify items in file, directories, etc.
+    """Classify items into file, directories, etc.
     """
     exist, nonexist = partition(items, os.path.exists)
     files, nonfiles = partition(exist, os.path.isfile)
-    dirs, unknown   = partition(nonfiles, os.path.isdir)
+    dirs, unknown = partition(nonfiles, os.path.isdir)
     return files, dirs, unknown, nonexist
 
 
 def numbins(n, binsize):
     return 1 + ((n - 1) / binsize)
 
-def print_items(items):
+
+def print_items(hdr, items):
     """Column-formatted output.
     """
+    print hdr
+
     max_cols = 120
     width = max(len(f) for f in items) + 2
+
     if width > max_cols:
         max_cols = width
-    width_fmt = '{:<'+str(width)+'}'
-    words_per_line = max_cols / width
-    num_lines = numbins(len(items), words_per_line)
+
+    items_per_line = max_cols / width
+    num_lines = numbins(len(items), items_per_line)
+
+    itemfmt = '{:<'+str(width)+'}'
+
     it = iter(items)
-    for i in xrange(num_lines):
-        for _, word in itertools.izip(xrange(words_per_line), it):
-            print width_fmt.format(word),
+    for _ in xrange(num_lines):
+        for _, item in itertools.izip(xrange(items_per_line), it):
+            print itemfmt.format(item),
         print
-            
+
+
 def remove(files, dirs):
     """Here goes.
     """
@@ -78,44 +109,47 @@ def remove(files, dirs):
         except Exception as e:
             print str(e)
             sys.exit(1)
-            
-    
-def main():
-    args = parse_args()
-    
-    fg, dg, ug, ng = classify(args.files)
 
-    nonexist = list(ng)
-    unknown  = list(ug)
-    dirs     = list(dg)
-    files    = list(fg)
+
+def prompt_to_proceed():
+    response = raw_input('proceed? (y/n)')
+    if response != 'y':
+        sys.exit(0)
+
+
+def main():
+
+    args = parse_args()
+
+    files, dirs, unknown, nonexist = [list(g) for g in (classify(args.files))]
 
     if args.interactive:
         if files:
-            print 'files to {}:'.format(args.command)
-            print_items(files)
+            hdr = 'files to {}:'.format(args.command)
+            print_items(hdr, files)
         if dirs:
-            print 'dirs to {}:'.format(args.command)
-            print_items(dirs)
-        if unknown:
-            print 'unknown items:'
-            print_items(unknown)
-        if nonexist:
-            print 'not found items:'
-            print_items(nonexist)
+            hdr = 'dirs to {}:'.format(args.command)
+            print_items(hdr, dirs)
 
-        response = raw_input('proceed? (y/n)')
-        if response != 'y':
-            sys.exit(0)
+    if nonexist or unknown:
+        if unknown:
+            hdr = 'unknown items:'
+            print_items(hdr, unknown)
+        if nonexist:
+            hdr = 'not found items:'
+            print_items(hdr, nonexist)
 
     if not files and not dirs:
-        print 'Nothing to do!'
+        print 'Nothing to do.'
         sys.exit(1)
+
+    if args.interactive:
+        prompt_to_proceed()
 
     if args.command == 'remove':
         remove(files, dirs)
-    
-    sys.exit(0)
+    else:
+        raise RuntimeError
 
 if __name__ == '__main__':
     main()
@@ -128,13 +162,16 @@ import contextlib
 import tempfile
 import subprocess
 
+
 class FunkyParserError(RuntimeError):
     pass
+
 
 class TestWith(unittest.TestCase):
 
     def __init__(self, *args, **kwargs):
         super(TestWith, self).__init__(*args, **kwargs)
+
         def error(*args):
             raise FunkyParserError()
         argparse.ArgumentParser.error = error
@@ -168,18 +205,20 @@ class TestWith(unittest.TestCase):
         """Returns list of three files.
         """
         args = parse_args('foo bar baz remove'.split())
-        self.assertEqual(args.files,['foo','bar','baz'])
-        self.assertEqual(args.command,'remove')
+        self.assertEqual(args.files, ['foo', 'bar', 'baz'])
+        self.assertEqual(args.command, 'remove')
 
     def test_args_02(self):
         """Has not implemented copy command yet.
         """
-        self.assertRaises(NotImplementedError, parse_args, 'foo bar baz copy'.split())
+        self.assertRaises(NotImplementedError, parse_args,
+                          'foo bar baz copy'.split())
 
     def test_args_03(self):
         """Does not recognize this command.
         """
-        self.assertRaises(FunkyParserError, parse_args, 'foo bar baz unknown'.split())
+        self.assertRaises(FunkyParserError, parse_args,
+                          'foo bar baz unknown'.split())
 
     def test_args_04(self):
         """Needs at least one target.
@@ -193,12 +232,11 @@ class TestWith(unittest.TestCase):
                 self.mkstemp(prefix=d1+'/') as f1,\
                 self.mkstemp(prefix=d1+'/') as f2,\
                 self.mkstemp(prefix=d1+'/') as f3:
-            files, dirs, unknown, nonexist = classify([d1,f1,f2,f3])
-            self.assertEqual(list(files),    [f1,f2,f3])
-            self.assertEqual(list(dirs),     [d1])
-            self.assertEqual(list(unknown),  [])
+            files, dirs, unknown, nonexist = classify([d1, f1, f2, f3])
+            self.assertEqual(list(files), [f1, f2, f3])
+            self.assertEqual(list(dirs), [d1])
+            self.assertEqual(list(unknown), [])
             self.assertEqual(list(nonexist), [])
-            
 
     def test_remove_01(self):
         """Successfully removes temp files.
@@ -207,7 +245,7 @@ class TestWith(unittest.TestCase):
         for _ in xrange(10):
             fd, path = tempfile.mkstemp()
             files.append(path)
-        remove(files,[])
+        remove(files, [])
         for i in xrange(10):
             self.assertFalse(os.path.exists(files[i]))
 
@@ -218,7 +256,7 @@ class TestWith(unittest.TestCase):
         for _ in xrange(10):
             path = tempfile.mkdtemp()
             dirs.append(path)
-        remove([],dirs)
+        remove([], dirs)
         for i in xrange(10):
             self.assertFalse(os.path.exists(dirs[i]))
 
@@ -230,7 +268,8 @@ class TestWith(unittest.TestCase):
                 self.mkstemp(prefix=d1) as f1,\
                 self.mkstemp(prefix=d1+'/') as f2,\
                 self.mkstemp(prefix=d1+'/') as f3:
-            proc = subprocess.Popen(['python', __file__, d1, f1, f2, f3, 'remove'],
+            proc = subprocess.Popen(['python', __file__, d1, f1, f2, f3,
+                                     'remove'],
                                     stdin=subprocess.PIPE,
                                     stdout=subprocess.PIPE,
                                     stderr=subprocess.PIPE)
@@ -242,7 +281,7 @@ class TestWith(unittest.TestCase):
                 print stdout
                 print stderr
 
-            self.assertEqual(rc,0)
+            self.assertEqual(rc, 0)
             self.assertFalse(os.path.exists(f1))
             self.assertFalse(os.path.exists(f2))
             self.assertFalse(os.path.exists(f3))
@@ -258,14 +297,15 @@ class TestWith(unittest.TestCase):
             pass
 
         proc = subprocess.Popen(['python', __file__, f1, f2, f3, 'remove'],
-                                    stdin=subprocess.PIPE,
-                                    stdout=subprocess.PIPE,
-                                    stderr=subprocess.PIPE)
+                                stdin=subprocess.PIPE,
+                                stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE)
 
         stdout, stderr = proc.communicate('y\n')
         rc = proc.wait()
 
-        self.assertEqual(rc,1)
+        self.assertEqual(rc, 1)
+
 
 class TestBins(unittest.TestCase):
 
@@ -277,19 +317,19 @@ class TestBins(unittest.TestCase):
         return 'multiplier = {}, binsize = {}, items = {}'.format(i, j, k)
 
     def test_numbins_1(self):
-        for i in [0]: # multiple of bin size
-            for j in xrange(1,100): # bin size
-                for k in xrange (i*j+1,(i+1)*j): # number of items
-                    self.assertEqual(numbins(k,j), i+1, self.msg(i, j, k))
+        for i in [0]:  # multiple of bin size
+            for j in xrange(1, 100):  # bin size
+                for k in xrange(i*j+1, (i+1)*j):  # number of items
+                    self.assertEqual(numbins(k, j), i+1, self.msg(i, j, k))
 
     def test_numbins_2(self):
-        for i in [1]: # multiple of bin size
-            for j in xrange(1,100): # bin size
-                for k in xrange (i*j+1,(i+1)*j): # number of items
-                    self.assertEqual(numbins(k,j), i+1, self.msg(i, j, k))
+        for i in [1]:  # multiple of bin size
+            for j in xrange(1, 100):  # bin size
+                for k in xrange(i*j+1, (i+1)*j):  # number of items
+                    self.assertEqual(numbins(k, j), i+1, self.msg(i, j, k))
 
     def test_numbins_3(self):
-        for i in xrange(0,20): # multiple of bin size
-            for j in xrange(1,100): # bin size
-                for k in xrange (i*j+1,(i+1)*j): # number of items
-                    self.assertEqual(numbins(k,j), i+1, self.msg(i, j, k))
+        for i in xrange(0, 20):  # multiple of bin size
+            for j in xrange(1, 100):  # bin size
+                for k in xrange(i*j+1, (i+1)*j):  # number of items
+                    self.assertEqual(numbins(k, j), i+1, self.msg(i, j, k))
