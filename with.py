@@ -317,18 +317,9 @@ class TestBins(unittest.TestCase):
         return 'multiplier = {}, binsize = {}, items = {}'.format(i, j, k)
 
     def test_numbins_1(self):
-        for i in [0]:  # multiple of bin size
-            for j in xrange(1, 100):  # bin size
-                for k in xrange(i*j+1, (i+1)*j):  # number of items
-                    self.assertEqual(numbins(k, j), i+1, self.msg(i, j, k))
-
-    def test_numbins_2(self):
-        for i in [1]:  # multiple of bin size
-            for j in xrange(1, 100):  # bin size
-                for k in xrange(i*j+1, (i+1)*j):  # number of items
-                    self.assertEqual(numbins(k, j), i+1, self.msg(i, j, k))
-
-    def test_numbins_3(self):
+        """Should return correct bin size for a range of bin sizes
+        and number of items.
+        """
         for i in xrange(0, 20):  # multiple of bin size
             for j in xrange(1, 100):  # bin size
                 for k in xrange(i*j+1, (i+1)*j):  # number of items
